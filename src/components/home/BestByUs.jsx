@@ -52,7 +52,7 @@ const BestByUs = () => {
                 Crafted with <br /><span className="text-amber-300">passion</span>
               </h3>
               <Link
-                to="/products"
+                to="/products?filter=bestSeller"
                 className="inline-flex items-center gap-2 bg-white text-rose-600 px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-rose-50 transition-colors w-fit"
               >
                 Explore All →

@@ -27,10 +27,14 @@ import Profile from './pages/Profile';
 import MyOrders from './pages/MyOrders';
 import Blogs from './pages/Blogs';
 import Offers from './pages/Offers';
-import ContactUs from './pages/ContactUs';
+import ContactUs from './pages/Contact-Us';
 import ShippingPolicy from './pages/ShippingPolicy';
 import ShopByMaterial from './pages/ShopByMaterial';
 import NotFound from './pages/NotFound';
+import AboutUs from './pages/AboutUs';
+import Checkout from './pages/Checkout';
+import GiftSetPage from './pages/GiftSetPage';
+import MyBankDetails from './pages/MyBankDetails';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated } = useAuthStore();
@@ -78,6 +82,12 @@ function AppContent() {
           <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
           <Route path="/profile/*" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/my-orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
+          <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+          <Route path="/about-us" element={<AboutUs />} />
+          <Route path="/gift-sets" element={<GiftSetPage />} />
+          <Route path="/bank-details" element={<ProtectedRoute><MyBankDetails /></ProtectedRoute>} />
+       
+
 
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -65,7 +65,7 @@ const LatestProducts = () => {
         </div>
 
         <div className="text-center mt-8">
-          <Link to="/products?type=new" className="btn-primary">View All New Arrivals</Link>
+          <Link to="/products?filter=newLaunch" className="btn-primary">View All New Arrivals</Link>
         </div>
       </div>
     </section>

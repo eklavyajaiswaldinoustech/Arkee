@@ -5,6 +5,16 @@ import { HeartIcon, ShoppingBagIcon, EyeIcon } from '@heroicons/react/24/outline
 import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid';
 import useWishlist from '../../hooks/useWishlist';
 import useCart from '../../hooks/useCart';
+import useCartStore from '../../store/cartStore';
+import { useNavigate } from 'react-router-dom';
+
+const getProductId = (item) =>
+  item?.productId?._id ||
+  item?.productId ||
+  item?.productid?._id ||
+  item?.productid ||
+  item?._id ||
+  null;
 
 const ProductCard = ({ product }) => {
   const [isWishlisted, setIsWishlisted] = useState(false);
@@ -13,6 +23,8 @@ const ProductCard = ({ product }) => {
 
   const { addToWishlist, removeFromWishlist } = useWishlist();
   const { addToCart } = useCart();
+  const navigate = useNavigate();
+  const cartItems = useCartStore((state) => state.items);
 
   // Removed: useAuth() - not defined, and user variable was never used in JSX
 
@@ -28,6 +40,9 @@ const ProductCard = ({ product }) => {
     rating,
     totalReviews,
   } = product;
+  const productInCart = cartItems.find(
+    (item) => getProductId(item)?.toString() === _id?.toString()
+  );
 
   const discount =
     price && discountPrice
@@ -46,6 +61,10 @@ const ProductCard = ({ product }) => {
 
   const handleAddToCart = async (e) => {
     e.preventDefault();
+    if (productInCart) {
+      navigate(`/cart?highlight=${encodeURIComponent(_id)}`);
+      return;
+    }
     setIsAddingCart(true);
     await addToCart(_id, 1);
     setIsAddingCart(false);
@@ -77,13 +96,14 @@ const ProductCard = ({ product }) => {
             >
               <EyeIcon className="w-4 h-4" />
             </Link>
-            <button
-              onClick={handleAddToCart}
-              disabled={isAddingCart}
-              className="bg-rose-500 text-white p-2.5 rounded-full shadow-lg hover:bg-rose-600 transition-colors disabled:opacity-70"
-            >
-              <ShoppingBagIcon className="w-4 h-4" />
-            </button>
+          <button
+            onClick={handleAddToCart}
+            disabled={isAddingCart}
+            className="bg-rose-500 text-white p-2.5 rounded-full shadow-lg hover:bg-rose-600 transition-colors disabled:opacity-70"
+            title={productInCart ? 'View in cart' : 'Add to cart'}
+          >
+            <ShoppingBagIcon className="w-4 h-4" />
+          </button>
           </div>
 
           {/* Badges */}
@@ -168,7 +188,11 @@ const ProductCard = ({ product }) => {
           className="w-full mt-3 bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-200 hover:border-rose-500 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-70 flex items-center justify-center gap-2"
         >
           <ShoppingBagIcon className="w-4 h-4" />
-          {isAddingCart ? 'Adding...' : 'Add to Cart'}
+          {isAddingCart
+            ? 'Adding...'
+            : productInCart
+            ? 'View in Cart'
+            : 'Add to Cart'}
         </button>
       </div>
     </div>

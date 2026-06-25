@@ -1,9 +1,20 @@
 import axios from 'axios';
 
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8100/api';
+const viteEnv = typeof import.meta !== 'undefined' ? import.meta.env : {};
+const nodeEnv = typeof process !== 'undefined' ? process.env : {};
+
+export const API_BASE_URL =
+  viteEnv?.VITE_API_URL ||
+  nodeEnv.REACT_APP_API_URL ||
+  'http://localhost:8100/api';
+
+export const IMAGE_BASE_URL =
+  viteEnv?.VITE_IMAGE_BASE_URL ||
+  nodeEnv.REACT_APP_IMAGE_BASE_URL ||
+  API_BASE_URL.replace(/\/api\/?$/, '');
 
 const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -30,7 +41,8 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    if (error.response?.status === 401) {
+    const hadToken = !!localStorage.getItem('arkee_token');
+    if (error.response?.status === 401 && hadToken) {
       localStorage.removeItem('arkee_token');
       localStorage.removeItem('arkee_user');
       window.location.href = '/login';

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ShoppingBagIcon,
   TrashIcon,
@@ -24,8 +24,66 @@ const COUPON_CODES = {
 };
 
 const FREE_SHIPPING_THRESHOLD = 999;
+const MAX_CART_QTY = 4;
+
+const getProductId = (item) =>
+  item?.productId?._id ||
+  item?.productId ||
+  item?.productid?._id ||
+  item?.productid ||
+  item?._id ||
+  null;
+
+const getItemPrice = (item) =>
+  Number(
+    item?.productId?.discountPrice ??
+      item?.productId?.price ??
+      item?.discountPrice ??
+      item?.price ??
+      item?.current_price ??
+      item?.price_at_addition ??
+      0
+  );
+
+const normalizeCartItem = (item) => {
+  const productId = getProductId(item);
+  const image =
+    item?.productId?.images?.[0] ||
+    item?.images?.[0] ||
+    item?.product?.images?.[0] ||
+    'https://placehold.co/200x200/fce7f3/be185d?text=Arkee';
+  const price = getItemPrice(item);
+
+  return {
+    ...item,
+    productId:
+      typeof item?.productId === 'object'
+        ? {
+            ...item.productId,
+            _id: productId,
+            images: item?.productId?.images || item?.images || [],
+            price: Number(item?.productId?.price ?? item?.current_price ?? item?.price_at_addition ?? price),
+            discountPrice: Number(
+              item?.productId?.discountPrice ?? item?.price_at_addition ?? item?.current_price ?? price
+            ),
+          }
+        : {
+            _id: productId,
+            name: item?.name || '',
+            images: item?.images || [],
+            price: Number(item?.current_price ?? item?.price_at_addition ?? price),
+            discountPrice: Number(item?.price_at_addition ?? item?.current_price ?? price),
+            category: item?.category || '',
+          },
+    image,
+    price,
+    unitPrice: price,
+    quantity: Math.min(Number(item?.quantity || 1), MAX_CART_QTY),
+  };
+};
 
 const Cart = () => {
+  const [searchParams] = useSearchParams();
   const [cartData, setCartData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
@@ -34,61 +92,86 @@ const Cart = () => {
   const [couponError, setCouponError] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const navigate = useNavigate();
-  const { setCart } = useCartStore();
-  const { removeFromCart, updateQuantity } = useCart();
+  const { setCart: setStoreCart } = useCartStore();
+  const { removeFromCart, updateQuantity, fetchCart } = useCart();
 
+  // Fetch cart on mount
   useEffect(() => {
     fetchCartData();
   }, []);
+
+  // Highlight item from query params
+  useEffect(() => {
+    const highlight = searchParams.get('highlight');
+    if (!highlight || loading || cartData.length === 0) return;
+    const el = document.getElementById(`cart-item-${highlight}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-rose-400', 'ring-offset-4');
+      const timer = setTimeout(() => {
+        el.classList.remove('ring-2', 'ring-rose-400', 'ring-offset-4');
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, loading, cartData]);
 
   const fetchCartData = async () => {
     setLoading(true);
     try {
       const res = await cartService.viewCart();
-      const items = res?.data?.items || res?.items || res?.data || [];
+      const items = normalizeCartItemArray(res?.data || res?.items || []);
       setCartData(items);
-      setCart(items);
-    } catch {
+      setStoreCart(items);
+    } catch (err) {
+      console.error('Fetch cart error:', err);
       setCartData([]);
     } finally {
       setLoading(false);
     }
   };
 
+  const normalizeCartItemArray = (items) =>
+    (Array.isArray(items) ? items : []).map(normalizeCartItem);
+
   const handleQuantityChange = async (productId, newQty) => {
     if (newQty < 1) return;
+    if (newQty > MAX_CART_QTY) {
+      toast.error('You can only select up to 4 of the same product.');
+      return;
+    }
+    
     setUpdatingId(productId);
     try {
-      await cartService.updateCartQuantity({ productId, quantity: newQty });
+      await updateQuantity(productId, newQty);
+      // Update local state optimistically
       setCartData((prev) =>
         prev.map((item) =>
-          (item.productId?._id || item.productId) === productId
+          getProductId(item) === productId
             ? { ...item, quantity: newQty }
             : item
         )
       );
+    } catch (err) {
+      console.error('Quantity update error:', err);
+      // Refetch on error to sync state
       await fetchCartData();
-    } catch {
-      toast.error('Failed to update quantity');
     } finally {
       setUpdatingId(null);
     }
   };
 
-  const handleRemove = async (productId, name) => {
+  const handleRemove = async (productId, name, quantity) => {
     setUpdatingId(productId);
     try {
-      await removeFromCart(productId, 1);
+      // Remove entire product with all its quantity
+      await removeFromCart(productId, quantity);
       setCartData((prev) =>
-        prev.filter(
-          (item) =>
-            (item.productId?._id || item.productId) !== productId
-        )
+        prev.filter((item) => getProductId(item) !== productId)
       );
       toast.success(`${name || 'Item'} removed from cart`);
+    } catch (err) {
+      console.error('Remove error:', err);
       await fetchCartData();
-    } catch {
-      toast.error('Failed to remove item');
     } finally {
       setUpdatingId(null);
     }
@@ -120,12 +203,8 @@ const Cart = () => {
 
   // ── Price Calculations ──
   const subtotal = cartData.reduce((sum, item) => {
-    const price =
-      item.productId?.discountPrice ||
-      item.productId?.price ||
-      item.price ||
-      0;
-    return sum + price * (item.quantity || 1);
+    const price = getItemPrice(item);
+    return sum + price * Number(item.quantity || 1);
   }, 0);
 
   const shippingCharge = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : 99;
@@ -138,9 +217,9 @@ const Cart = () => {
 
   const total = subtotal + shippingCharge - couponDiscount;
   const savings = cartData.reduce((sum, item) => {
-    const orig = item.productId?.price || 0;
-    const disc = item.productId?.discountPrice || orig;
-    return sum + (orig - disc) * (item.quantity || 1);
+    const orig = Number(item.productId?.price || item.current_price || item.price_at_addition || 0);
+    const disc = Number(item.productId?.discountPrice || item.price || orig);
+    return sum + Math.max(0, orig - disc) * Number(item.quantity || 1);
   }, 0);
 
   // Loading Skeleton
@@ -257,14 +336,11 @@ const Cart = () => {
           <div className="lg:col-span-2 space-y-4">
             {cartData.map((item, index) => {
               const product = item.productId || item.product || item;
-              const productId = product?._id || item.productId;
+              const productId = getProductId(item);
               const name = product?.name || 'Product';
-              const image =
-                product?.images?.[0] ||
-                'https://placehold.co/200x200/fce7f3/be185d?text=Arkee';
-              const price =
-                product?.discountPrice || product?.price || item.price || 0;
-              const originalPrice = product?.price || 0;
+              const image = product?.images?.[0] || item.image || 'https://placehold.co/200x200/fce7f3/be185d?text=Arkee';
+              const price = getItemPrice(item);
+              const originalPrice = Number(product?.price || item.current_price || item.price_at_addition || 0);
               const quantity = item.quantity || 1;
               const discount =
                 originalPrice && price < originalPrice
@@ -277,6 +353,7 @@ const Cart = () => {
               return (
                 <div
                   key={productId || index}
+                  id={`cart-item-${productId}`}
                   className={`bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm transition-all duration-300 ${
                     isUpdating ? 'opacity-60' : 'hover:shadow-md'
                   }`}
@@ -319,7 +396,7 @@ const Cart = () => {
 
                         {/* Remove Button */}
                         <button
-                          onClick={() => handleRemove(productId, name)}
+                          onClick={() => handleRemove(productId, name, quantity)}
                           disabled={isUpdating}
                           className="flex-shrink-0 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-50"
                           title="Remove item"
@@ -389,12 +466,17 @@ const Cart = () => {
                             onClick={() =>
                               handleQuantityChange(productId, quantity + 1)
                             }
-                            disabled={isUpdating}
+                            disabled={isUpdating || quantity >= MAX_CART_QTY}
                             className="px-3 py-2 hover:bg-rose-50 hover:text-rose-500 transition-colors disabled:opacity-40"
                           >
                             <PlusIcon className="w-3.5 h-3.5" />
                           </button>
                         </div>
+                        {quantity >= MAX_CART_QTY && (
+                          <p className="text-xs text-amber-600 mt-2 text-right">
+                            Max 4 per product
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -578,7 +660,7 @@ const Cart = () => {
 
               {/* Checkout Button */}
               <button
-                onClick={() => navigate('/my-orders')}
+                onClick={() => navigate('/checkout')}
                 className="w-full btn-primary justify-center py-4 text-base shadow-lg shadow-rose-200 mb-3"
               >
                 Proceed to Checkout

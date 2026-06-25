@@ -3,16 +3,46 @@ import { Link } from 'react-router-dom';
 import { categoryService } from '../../api/services/categoryService';
 
 const fallbackCategories = [
-  { _id: '1', name: 'Earrings', emoji: '✨', color: 'from-rose-100 to-pink-200', image: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=300&auto=format&fit=crop' },
-  { _id: '2', name: 'Necklaces', emoji: '💎', color: 'from-amber-100 to-yellow-200', image: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=300&auto=format&fit=crop' },
-  { _id: '3', name: 'Bangles', emoji: '🌸', color: 'from-pink-100 to-purple-200', image: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=300&auto=format&fit=crop' },
-  { _id: '4', name: 'Rings', emoji: '💍', color: 'from-blue-100 to-indigo-200', image: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=300&auto=format&fit=crop' },
-  { _id: '5', name: 'Anklets', emoji: '🦋', color: 'from-green-100 to-teal-200', image: 'https://images.unsplash.com/photo-1573408301185-9519f94816b5?w=300&auto=format&fit=crop' },
-  { _id: '6', name: 'Maang Tikka', emoji: '🌺', color: 'from-orange-100 to-rose-200', image: 'https://images.unsplash.com/photo-1602173574767-37ac01994b2a?w=300&auto=format&fit=crop' },
+  {
+    _id: 'silver',
+    name: 'Silver',
+    image: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=500&auto=format&fit=crop',
+    emoji: '🩶',
+    color: 'from-slate-100 to-slate-300',
+  },
+  {
+    _id: 'gold',
+    name: 'Gold',
+    image: 'https://images.unsplash.com/photo-1601821765780-754fa98637be?w=500&auto=format&fit=crop',
+    emoji: '✨',
+    color: 'from-amber-100 to-amber-300',
+  },
+  {
+    _id: 'oxidised',
+    name: 'Oxidised',
+    image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=500&auto=format&fit=crop',
+    emoji: '🖤',
+    color: 'from-gray-200 to-gray-400',
+  },
+  {
+    _id: 'rose-gold',
+    name: 'Rose Gold',
+    image: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=500&auto=format&fit=crop',
+    emoji: '🌹',
+    color: 'from-rose-100 to-pink-200',
+  },
 ];
 
+const normalizeCategory = (category, index) => ({
+  ...category,
+  name: category?.name || category?.type || `Category ${index + 1}`,
+  image: category?.image || fallbackCategories[index % fallbackCategories.length]?.image,
+  emoji: fallbackCategories[index % fallbackCategories.length]?.emoji || '💎',
+  color: fallbackCategories[index % fallbackCategories.length]?.color || 'from-rose-100 to-pink-200',
+});
+
 const CategorySection = () => {
-  const [categories, setCategories] = useState(fallbackCategories);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,14 +51,12 @@ const CategorySection = () => {
         const res = await categoryService.getAllCategories();
         const cats = res?.data || res?.categories || [];
         if (cats.length > 0) {
-          setCategories(cats.map((cat, i) => ({
-            ...cat,
-            emoji: fallbackCategories[i % fallbackCategories.length]?.emoji || '💎',
-            color: fallbackCategories[i % fallbackCategories.length]?.color || 'from-rose-100 to-pink-200',
-          })));
+          setCategories(cats.map(normalizeCategory));
+        } else {
+          setCategories(fallbackCategories);
         }
       } catch {
-        // use fallback
+        setCategories(fallbackCategories);
       } finally {
         setLoading(false);
       }
@@ -57,7 +85,7 @@ const CategorySection = () => {
             {categories.slice(0, 6).map((cat, i) => (
               <Link
                 key={cat._id || i}
-                to={`/products?category=${cat.name?.toLowerCase()}`}
+                to={`/products?category=${encodeURIComponent((cat.name || '').toLowerCase())}`}
                 className="group flex flex-col items-center"
               >
                 <div className={`w-full aspect-square rounded-2xl bg-gradient-to-br ${cat.color} overflow-hidden relative shadow-sm group-hover:shadow-lg transition-all duration-300 group-hover:-translate-y-1`}>
@@ -65,7 +93,7 @@ const CategorySection = () => {
                     <img
                       src={cat.image}
                       alt={cat.name}
-                      className="w-full h-full object-cover opacity-60 group-hover:scale-110 transition-transform duration-500"
+                      className="w-full h-full object-cover opacity-80 group-hover:scale-110 transition-transform duration-500"
                     />
                   )}
                   <div className="absolute inset-0 flex items-center justify-center">
@@ -73,7 +101,7 @@ const CategorySection = () => {
                   </div>
                 </div>
                 <p className="mt-3 text-sm font-semibold text-gray-700 group-hover:text-rose-500 transition-colors text-center">
-                  {cat.name}
+                  {cat.name || cat.type}
                 </p>
               </Link>
             ))}

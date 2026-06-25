@@ -1,28 +1,31 @@
-// src/components/home/FeaturedProducts.jsx
+// src/components/home/NewLaunchSection.jsx
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRightIcon, FireIcon } from '@heroicons/react/24/outline';
+import { ArrowRightIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { productService } from '../../api/services/productService';
 import ProductCard from '../ui/ProductCard';
 import { ProductCardSkeleton } from '../ui/Skeleton';
 
-const FeaturedProducts = () => {
+const NewLaunchSection = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchNewLaunches = async () => {
       setLoading(true);
       try {
-        const res = await productService.getBestByUs();
-        setProducts(res?.data?.products || res?.products || res?.data || []);
-      } catch {
+        const res = await productService.getNewLaunchProducts();
+        const allProducts = Array.isArray(res?.data) ? res.data : [];
+        setProducts(allProducts);
+      } catch (error) {
+        console.error('Error fetching new launches:', error);
         setProducts([]);
       } finally {
         setLoading(false);
       }
     };
-    fetch();
+    
+    fetchNewLaunches();
   }, []);
 
   if (!loading && products.length === 0) return null;
@@ -34,20 +37,20 @@ const FeaturedProducts = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <FireIcon className="w-5 h-5 text-rose-500" />
-              <span className="text-rose-500 font-medium text-sm uppercase tracking-widest">
-                Best Sellers
+              <SparklesIcon className="w-5 h-5 text-amber-500" />
+              <span className="text-amber-500 font-medium text-sm uppercase tracking-widest">
+                New Launches
               </span>
             </div>
             <h2 className="font-serif text-3xl md:text-4xl font-bold text-gray-800">
-              Featured{' '}
+              Latest{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-blush-500">
-                Products
+                Arrivals
               </span>
             </h2>
           </div>
           <Link
-            to="/products"
+            to="/products?filter=newLaunch"
             className="hidden sm:flex items-center gap-2 text-sm font-medium text-rose-500 hover:text-rose-600 transition-colors group"
           >
             View All
@@ -65,7 +68,17 @@ const FeaturedProducts = () => {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
             {products.map((product) => (
-              <ProductCard key={product._id} product={product} />
+              <ProductCard 
+                key={product._id} 
+                product={product}
+                badge={
+                  product.newLaunchExpiresAt && (
+                    <div className="absolute top-2 right-2 bg-amber-500 text-white text-xs px-2 py-1 rounded">
+                      New
+                    </div>
+                  )
+                }
+              />
             ))}
           </div>
         )}
@@ -73,10 +86,10 @@ const FeaturedProducts = () => {
         {/* Mobile View All */}
         <div className="mt-8 text-center sm:hidden">
           <Link
-            to="/products"
+            to="/products?filter=newLaunch"
             className="inline-flex items-center gap-2 btn-primary text-sm"
           >
-            View All Products
+            View All New Launches
             <ArrowRightIcon className="w-4 h-4" />
           </Link>
         </div>
@@ -85,4 +98,4 @@ const FeaturedProducts = () => {
   );
 };
 
-export default FeaturedProducts;
+export default NewLaunchSection;
